@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """x2md skill wrapper: save X content to MyNotes and commit it."""
 
+from __future__ import annotations
+
 import argparse
 import os
 import re
