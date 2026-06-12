@@ -1,6 +1,6 @@
 ---
 name: x2md
-description: 把 X (Twitter) 推文或长文转成 Markdown,落盘到 MyNotes/00_Inbox。底层调本机 `~/bin/x2md.exe`(从 github.com/yangjh-xbmu/x2md 源码 GOOS=windows GOARCH=amd64 交叉编译,使用 fxtwitter API 无需鉴权)。输出文件名 `x-{author}-{YYYYMMDD}.md`,完事自动 git commit。触发词:「存 X」「存档 X 链接」「x2md 一下这条推」「把这条推文保存到笔记」。也接受 `/x2md <url>` 直接调用。
+description: 把 X (Twitter) 推文或长文转成 Markdown,落盘到 MyNotes/00_Inbox。底层调用本机 `x2md` Go 二进制(从 github.com/yangjh-xbmu/x2md 编译安装,使用 fxtwitter API 无需鉴权)。输出文件名 `x-{author}-{YYYYMMDD}.md`,完事自动 git commit。触发词:「存 X」「存档 X 链接」「x2md 一下这条推」「把这条推文保存到笔记」。也接受 `/x2md <url>` 直接调用。
 user-invocable: true
 context: fork
 allowed-tools: Bash, Read, Glob
@@ -27,12 +27,12 @@ Examples:
 /x2md https://x.com/user/article/123 -o ~/Downloads
 ```
 
-底层调用 `./x2md-cli <url>`(skill 目录里的薄壳,叫 `x2md-cli` 是因为源仓库 `.gitignore` 把 `x2md` 编译产物排除了),壳自动选能跑的 Python 调 `x2md.py` 包装做落盘 + commit。
+底层调用 `./x2md-cli <url>`。`x2md-cli` 是 skill 入口薄壳,自动选能跑的 Python 调同目录的 `x2md.py`。`x2md.py` 再调用 PATH 或 `~/bin/` 里的 Go 二进制 `x2md` / `x2md.exe`,负责落盘和 commit。
 
 ## 流水线
 
 1. 校验 URL 必须命中 `x.com` / `twitter.com` / `fxtwitter.com` / `fixupx.com`
-2. 调 `~/bin/x2md.exe -o <tmpfile> [flags] <url>`
+2. 调 Go 二进制 `x2md -o <tmpfile> [flags] <url>`
 3. 解析输出 frontmatter 拿 `author` / `date` 字段
 4. 文件名:`x-{author-sanitized}-{YYYYMMDD}.md`
    - author: 去 `@`,`.` / `_` 转 `-`,去掉非 `\w-` 字符
@@ -42,12 +42,14 @@ Examples:
 
 ## Script / Binary Location
 
-- **skill 目录**:`~/.claude/skills/x2md/`(chezmoi 跨机器同步)
+- **事实源仓库**:`~/Desktop/repos/x2md/`
+  - Go 源码 — 编译出 `x2md` / `x2md.exe`,负责提取 X 内容
+  - `SKILL.md` / `x2md-cli` / `x2md.py` — skill wrapper,负责落盘和 commit
+- **skill 安装目录**:`~/.claude/skills/x2md/`
   - `SKILL.md` — Claude 读这个
   - `x2md-cli` — 跨平台薄壳,自动选 `python3` / `python` 调下面的 `x2md.py`
   - `x2md.py` — Python 包装,做落盘 + git commit
 - **二进制**:`~/bin/x2md.exe`(Windows) / `~/bin/x2md`(macOS/Linux),在 PATH
-- **源仓库**:`~/Desktop/repos/x2md/`(GitHub: yangjh-xbmu/x2md)
 
 ## 跨机器安装
 
@@ -61,12 +63,12 @@ cd ~/Desktop/repos/x2md && go build -o ~/bin/x2md .
 # Windows (Git Bash):
 cd ~/Desktop/repos/x2md && GOOS=windows GOARCH=amd64 go build -o ~/bin/x2md.exe .
 
-# 3. skill 目录(可选,如果走 chezmoi 同步就跳过)
+# 3. 安装 skill wrapper
 mkdir -p ~/.claude/skills/x2md
-# 把 x2md 壳和 x2md.py 复制进去,SKILL.md 也复制
+cp SKILL.md x2md-cli x2md.py ~/.claude/skills/x2md/
 ```
 
-> 想要纯 markdown 流(不落盘)直接 `x2md.exe <url>`,原始 markdown 输出到 stdout。
+> 想要纯 markdown 流(不落盘)直接 `x2md <url>`,原始 markdown 输出到 stdout。
 
 ## 常见错误
 

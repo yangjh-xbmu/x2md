@@ -63,6 +63,21 @@ x2md -images -o output.md https://x.com/user/status/123456
 
 图片保存到 `output_images/` 目录，Markdown 中的 URL 自动替换为本地路径。
 
+## Skill wrapper
+
+仓库同时包含 Claude skill wrapper:
+
+- `SKILL.md`: skill 说明和调用约定
+- `x2md-cli`: skill 入口薄壳,负责选择 Python 并调用同目录的 `x2md.py`
+- `x2md.py`: 调用 Go 二进制 `x2md` / `x2md.exe`,把结果落盘到 `MyNotes/00_Inbox` 并自动 git commit
+
+也就是说,Go 二进制负责内容提取,skill wrapper 负责笔记落盘和提交。安装 skill 时复制这三个文件到 `~/.claude/skills/x2md/`:
+
+```bash
+mkdir -p ~/.claude/skills/x2md
+cp SKILL.md x2md-cli x2md.py ~/.claude/skills/x2md/
+```
+
 ## 输出格式
 
 输出为带 YAML frontmatter 的 Markdown。元数据以结构化方式存储在 frontmatter 中，正文只保留内容。
