@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # x2md: 跨平台薄壳,转发到 Python 包装 x2md.py(做落盘 + git commit)
-# 想要纯 markdown 流的用户直接 x2md.exe <url>(binary 在 PATH)
+# 想要纯 markdown 流的用户直接 x2md <url>(binary 在 PATH)
 set -e
 if command -v python3 >/dev/null 2>&1 && python3 -c "import sys" >/dev/null 2>&1; then
   PY=python3

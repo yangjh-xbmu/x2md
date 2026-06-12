@@ -45,10 +45,12 @@ Examples:
 - **事实源仓库**:`~/Desktop/repos/x2md/`
   - Go 源码 — 编译出 `x2md` / `x2md.exe`,负责提取 X 内容
   - `SKILL.md` / `x2md-cli` / `x2md.py` — skill wrapper,负责落盘和 commit
+  - `dida_x2md_inbox.py` — 滴答收集箱 X 链接自动处理脚本
 - **skill 安装目录**:`~/.claude/skills/x2md/`
   - `SKILL.md` — Claude 读这个
   - `x2md-cli` — 跨平台薄壳,自动选 `python3` / `python` 调下面的 `x2md.py`
   - `x2md.py` — Python 包装,做落盘 + git commit
+  - `dida_x2md_inbox.py` — Hermes 定时任务可调用的确定性脚本
 - **二进制**:`~/bin/x2md.exe`(Windows) / `~/bin/x2md`(macOS/Linux),在 PATH
 
 ## 跨机器安装
@@ -65,10 +67,34 @@ cd ~/Desktop/repos/x2md && GOOS=windows GOARCH=amd64 go build -o ~/bin/x2md.exe 
 
 # 3. 安装 skill wrapper
 mkdir -p ~/.claude/skills/x2md
-cp SKILL.md x2md-cli x2md.py ~/.claude/skills/x2md/
+cp SKILL.md x2md-cli x2md.py dida_x2md_inbox.py ~/.claude/skills/x2md/
 ```
 
 > 想要纯 markdown 流(不落盘)直接 `x2md <url>`,原始 markdown 输出到 stdout。
+
+## 滴答收集箱自动处理
+
+首版自动化脚本只做采集和去重,不自动完成滴答任务。
+
+Dry-run:
+
+```bash
+python ~/Desktop/repos/x2md/dida_x2md_inbox.py --dry-run
+```
+
+实际运行:
+
+```bash
+python ~/Desktop/repos/x2md/dida_x2md_inbox.py --run
+```
+
+Hermes 定时任务建议调用 Mac 上的绝对路径:
+
+```bash
+python /Users/yangjh/Desktop/repos/x2md/dida_x2md_inbox.py --run
+```
+
+运行状态写入 `~/.local/state/x2md-dida/processed.json`,报告写入 `~/.local/state/x2md-dida/runs/`。
 
 ## 常见错误
 

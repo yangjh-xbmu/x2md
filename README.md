@@ -70,12 +70,41 @@ x2md -images -o output.md https://x.com/user/status/123456
 - `SKILL.md`: skill 说明和调用约定
 - `x2md-cli`: skill 入口薄壳,负责选择 Python 并调用同目录的 `x2md.py`
 - `x2md.py`: 调用 Go 二进制 `x2md` / `x2md.exe`,把结果落盘到 `MyNotes/00_Inbox` 并自动 git commit
+- `dida_x2md_inbox.py`: 从滴答清单收集箱读取 X 链接,调用 `x2md-cli` 处理,并记录状态防重复
 
 也就是说,Go 二进制负责内容提取,skill wrapper 负责笔记落盘和提交。安装 skill 时复制这三个文件到 `~/.claude/skills/x2md/`:
 
 ```bash
 mkdir -p ~/.claude/skills/x2md
-cp SKILL.md x2md-cli x2md.py ~/.claude/skills/x2md/
+cp SKILL.md x2md-cli x2md.py dida_x2md_inbox.py ~/.claude/skills/x2md/
+```
+
+## Dida inbox automation
+
+每天自动处理滴答清单收集箱里的 X 链接时,使用 `dida_x2md_inbox.py`。默认是 dry-run,只列出将处理的链接,不会调用 `x2md-cli`:
+
+```bash
+python ~/Desktop/repos/x2md/dida_x2md_inbox.py --dry-run
+```
+
+确认无误后用 `--run` 执行。脚本会:
+
+1. 通过 `dida agent context --outline --json` 获取 inbox project id
+2. 通过 `dida project tasks "$INBOX_ID" --limit 500 --compact --json` 读取收集箱,避免 `task list` 默认 limit 截断
+3. 抽取并规范化 X 链接,按去 query 后的 canonical URL 去重
+4. 跳过 `~/.local/state/x2md-dida/processed.json` 中已成功处理的链接
+5. 对新链接调用 `~/.claude/skills/x2md/x2md-cli --no-commit`
+6. 成功后统一提交 MyNotes 的 `00_Inbox`
+7. 输出 JSON 和 Markdown 运行报告到 `~/.local/state/x2md-dida/runs/`
+
+```bash
+python ~/Desktop/repos/x2md/dida_x2md_inbox.py --run
+```
+
+Hermes 定时任务应调用确定性脚本,不要让 Agent 自己理解收集箱内容:
+
+```bash
+python /Users/yangjh/Desktop/repos/x2md/dida_x2md_inbox.py --run
 ```
 
 ## 输出格式
