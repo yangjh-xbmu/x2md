@@ -71,12 +71,13 @@ x2md -images -o output.md https://x.com/user/status/123456
 - `x2md-cli`: skill 入口薄壳,负责选择 Python 并调用同目录的 `x2md.py`
 - `x2md.py`: 调用 Go 二进制 `x2md` / `x2md.exe`,把结果落盘到 `MyNotes/00_Inbox` 并自动 git commit
 - `dida_x2md_inbox.py`: 从滴答清单收集箱读取 X 链接,调用 `x2md-cli` 处理,并记录状态防重复
+- `dida_x2md_notify.py`: 包装 `dida_x2md_inbox.py` 的 JSONL 事件流,通过 `hermes send` 发送飞书进度通知
 
 也就是说,Go 二进制负责内容提取,skill wrapper 负责笔记落盘和提交。安装 skill 时复制这三个文件到 `~/.claude/skills/x2md/`:
 
 ```bash
 mkdir -p ~/.claude/skills/x2md
-cp SKILL.md x2md-cli x2md.py dida_x2md_inbox.py ~/.claude/skills/x2md/
+cp SKILL.md x2md-cli x2md.py dida_x2md_inbox.py dida_x2md_notify.py ~/.claude/skills/x2md/
 ```
 
 ## Dida inbox automation
@@ -101,10 +102,22 @@ python ~/Desktop/repos/x2md/dida_x2md_inbox.py --dry-run
 python ~/Desktop/repos/x2md/dida_x2md_inbox.py --run
 ```
 
-Hermes 定时任务应调用确定性脚本,不要让 Agent 自己理解收集箱内容:
+如果需要让 Hermes/飞书实时看到进度,使用通知包装脚本。默认通知策略是:开始通知一次、失败逐条通知、成功每 10 条汇总一次、结束通知一次。
 
 ```bash
-python /Users/yangjh/Desktop/repos/x2md/dida_x2md_inbox.py --run
+python /Users/yangjh/Desktop/repos/x2md/dida_x2md_notify.py --run --target feishu
+```
+
+测试飞书通知但不实际处理:
+
+```bash
+python /Users/yangjh/Desktop/repos/x2md/dida_x2md_notify.py --dry-run --target feishu
+```
+
+需要每条成功都发飞书时:
+
+```bash
+python /Users/yangjh/Desktop/repos/x2md/dida_x2md_notify.py --run --target feishu --success-policy each
 ```
 
 ## 输出格式

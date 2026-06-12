@@ -38,6 +38,13 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def emit_event(enabled: bool, event: dict) -> None:
+    if not enabled:
+        return
+    event.setdefault("ts", now_iso())
+    print(json.dumps(event, ensure_ascii=False), flush=True)
+
+
 def find_dida_binary(explicit: str | None) -> str:
     if explicit:
         return explicit
@@ -241,12 +248,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--report-dir", default=DEFAULT_STATE_DIR / "runs", help="Run report directory.")
     parser.add_argument("--thread", action="store_true", help="Pass --thread to x2md-cli.")
     parser.add_argument("--images", action="store_true", help="Pass --images to x2md-cli.")
+    parser.add_argument("--events", choices=("none", "jsonl"), default="none", help="Emit machine-readable event stream.")
+    parser.add_argument("--progress-every", type=int, default=10, help="Emit progress event every N processed links.")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     mode = "run" if args.run else "dry-run"
+    event_jsonl = args.events == "jsonl"
     state_path = Path(args.state).expanduser()
     report_dir = Path(args.report_dir).expanduser()
     output_dir = Path(args.output_dir).expanduser()
@@ -270,9 +280,22 @@ def main(argv: list[str] | None = None) -> int:
     saved_paths: list[str] = []
     commit_result = {"ok": True, "message": "dry-run"}
 
+    emit_event(
+        event_jsonl,
+        {
+            "type": "start",
+            "mode": mode,
+            "inboxId": inbox_id,
+            "inboxTaskCount": len(tasks),
+            "linkCount": len(links),
+            "newCount": len(new_links),
+            "skippedProcessedCount": len(skipped),
+        },
+    )
+
     if args.run:
         output_dir.mkdir(parents=True, exist_ok=True)
-        for item in new_links:
+        for index, item in enumerate(new_links, start=1):
             ok, message, saved = run_x2md(x2md_cli, output_dir, item.url, args.thread, args.images)
             record = {
                 "canonicalUrl": item.canonical_url,
@@ -286,8 +309,43 @@ def main(argv: list[str] | None = None) -> int:
             if ok:
                 successes.append(record)
                 saved_paths.extend(saved)
+                emit_event(
+                    event_jsonl,
+                    {
+                        "type": "success",
+                        "index": index,
+                        "total": len(new_links),
+                        "canonicalUrl": item.canonical_url,
+                        "url": item.url,
+                        "taskIds": item.task_ids,
+                        "savedPaths": saved,
+                    },
+                )
             else:
                 failures.append(record)
+                emit_event(
+                    event_jsonl,
+                    {
+                        "type": "failure",
+                        "index": index,
+                        "total": len(new_links),
+                        "canonicalUrl": item.canonical_url,
+                        "url": item.url,
+                        "taskIds": item.task_ids,
+                        "message": message,
+                    },
+                )
+            if args.progress_every > 0 and index % args.progress_every == 0:
+                emit_event(
+                    event_jsonl,
+                    {
+                        "type": "progress",
+                        "done": index,
+                        "total": len(new_links),
+                        "successCount": len(successes),
+                        "failureCount": len(failures),
+                    },
+                )
         commit_ok, commit_message = commit_output(output_dir, saved_paths)
         commit_result = {"ok": commit_ok, "message": commit_message}
         if successes and commit_ok:
@@ -330,7 +388,24 @@ def main(argv: list[str] | None = None) -> int:
     summary["jsonReport"] = str(json_report)
     summary["markdownReport"] = str(md_report)
 
-    print(json.dumps(summary, ensure_ascii=False, indent=2))
+    emit_event(
+        event_jsonl,
+        {
+            "type": "summary",
+            "mode": mode,
+            "inboxTaskCount": summary["inboxTaskCount"],
+            "linkCount": summary["linkCount"],
+            "newCount": summary["newCount"],
+            "skippedProcessedCount": summary["skippedProcessedCount"],
+            "successCount": summary["successCount"],
+            "failureCount": summary["failureCount"],
+            "commit": summary["commit"],
+            "jsonReport": summary["jsonReport"],
+            "markdownReport": summary["markdownReport"],
+        },
+    )
+    if not event_jsonl:
+        print(json.dumps(summary, ensure_ascii=False, indent=2))
     if failures or not commit_result["ok"]:
         return 1
     return 0
