@@ -1,3 +1,12 @@
+---
+purpose: 将 X (Twitter) 推文和文章提取为 Markdown 格式
+status: active
+next_steps: []
+capabilities:
+  - x-to-markdown
+  - thread-extraction
+  - image-download
+---
 # x2md
 
 将 X (Twitter) 推文和文章提取为 Markdown。
